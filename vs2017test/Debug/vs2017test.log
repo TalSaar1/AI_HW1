@@ -1,8 +1,5 @@
-﻿  Cell.cpp
-  main.cpp
-c:\users\elads\desktop\ai\vs2017test\vs2017test\main.cpp(46): warning C4305: 'argument': truncation from 'double' to 'GLclampf'
-c:\users\elads\desktop\ai\vs2017test\vs2017test\main.cpp(51): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
-c:\users\elads\desktop\ai\vs2017test\vs2017test\main.cpp(254): warning C4326: return type of 'main' should be 'int' instead of 'void'
-  Generating Code...
-  LINK : C:\Users\elads\Desktop\AI\vs2017test\Debug\vs2017test.exe not found or not built by the last incremental link; performing full link
+﻿  main.cpp
+c:\users\elads\desktop\ai\vs2017test\vs2017test\main.cpp(47): warning C4305: 'argument': truncation from 'double' to 'GLclampf'
+c:\users\elads\desktop\ai\vs2017test\vs2017test\main.cpp(52): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+c:\users\elads\desktop\ai\vs2017test\vs2017test\main.cpp(213): warning C4326: return type of 'main' should be 'int' instead of 'void'
   vs2017test.vcxproj -> C:\Users\elads\Desktop\AI\vs2017test\Debug\vs2017test.exe

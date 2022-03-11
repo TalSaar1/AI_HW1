@@ -1,19 +1,26 @@
-#include "glut.h"
-#include <time.h>
-#include <vector>
-#include "Cell.h"
+/*
+	Names:
+	Elad Shoham - 206001752
+	Tal Saar - 209151380
+*/
+
 #include <iostream>
+#include <vector>
+#include <time.h>
+#include "glut.h"
+#include "Cell.h"
 
 using namespace std;
 
 const int MSZ = 100; // maze size
 
 enum types { WALL, SPACE, START, TARGET, BLACK, GRAY, TARGET_GRAY, PATH };
+enum choice { BIDIRECTIONAL_SEARCH };
 
 int maze[MSZ][MSZ] = { 0 };
-vector<Cell*> grays;
+vector<Cell*> startGrays;
 vector<Cell*> targetGrays;
-bool startBFS = false;
+bool startBidirectionalSearch = false;
 
 void initMaze()
 {
@@ -32,7 +39,7 @@ void initMaze()
 
 	maze[MSZ / 2][MSZ / 2] = START;
 	Cell* ps = new Cell(MSZ / 2, MSZ / 2, nullptr);
-	grays.push_back(ps);
+	startGrays.push_back(ps);
 
 	rowTarget = rand() % MSZ;
 	colTarget = rand() % MSZ;
@@ -83,7 +90,7 @@ void showMaze()
 				glColor3d(1, 0, 1); // magenta
 				break;
 			case TARGET_GRAY:
-				glColor3d(0.5, 0, 0.5); // 
+				glColor3d(0.2, 0.2, 0.2); // dark gray
 				break;
 			case PATH:
 				glColor3d(0, 0.7, 0); // green
@@ -92,90 +99,64 @@ void showMaze()
 			// now show the cell as plygon (square)
 			glBegin(GL_POLYGON);
 			glVertex2d(j, i); // left-bottom corner
-			glVertex2d(j, i+1); // left-top corner
-			glVertex2d(j+1, i+1); // right-top corner
-			glVertex2d(j+1, i); // right-bottom corner
+			glVertex2d(j, i + 1); // left-top corner
+			glVertex2d(j + 1, i + 1); // right-top corner
+			glVertex2d(j + 1, i); // right-bottom corner
 			glEnd();
 		}
 	}
 }
 
-void restorePath(Cell* ps, Cell* pt)
+void restoreBFSPath(Cell* ps)
 {
 	while (ps != nullptr)
 	{
 		maze[ps->getRow()][ps->getCol()] = PATH;
 		ps = ps->getParent();
 	}
+}
 
-	while (pt != nullptr)
+void restorePath(Cell* ps, vector<Cell*> &collisionGrays, int row, int col)
+{
+	Cell* pt = nullptr;
+
+	restoreBFSPath(ps);
+
+	do
 	{
-		maze[pt->getRow()][pt->getCol()] = PATH;
-		pt = pt->getParent();
-	}
+		pt = *(collisionGrays.begin());
+		collisionGrays.erase(collisionGrays.begin());
+	} while (pt != NULL && (pt->getRow() != row || pt->getCol() != col));
+
+	restoreBFSPath(pt);
 }
 
 // gets the pointer to the current Cell and the coordinates of its neighbor
-void checkNeighbor(Cell* pCurrent, int row, int col)
+void checkNeighbor(Cell* pCurrent, vector<Cell*> &grays, vector<Cell*> &collisionGrays, int row, int col, int color, int target)
 {
-	Cell* pTarget;
-
 	// check if the niegbor is not a TARGET
-	if (maze[row][col] == TARGET_GRAY)
+	if (maze[row][col] == target)
 	{
-		startBFS = false;
+		startBidirectionalSearch = false;
 		cout << "The solution has been found\n";
-		do
-		{
-			pTarget = *(targetGrays.begin());
-			targetGrays.erase(targetGrays.begin());
-		} while (pTarget != NULL && (pTarget->getRow() != row || pTarget->getCol() != col));
-		restorePath(pCurrent, pTarget);
+		restorePath(pCurrent, collisionGrays, row, col);
 	}
 	else // paint this neighbor GRAY
 	{
-		Cell* ps = new Cell(row, col, pCurrent);
-		grays.push_back(ps);
-		maze[row][col] = GRAY;
+		grays.push_back(new Cell(row, col, pCurrent));
+		maze[row][col] = color;
 	}
 }
 
-void checkNeighborTarget(Cell* pCurrent, int row, int col)
+void BFSIteration(vector<Cell*> &grays, vector<Cell*> &collisionGrays, int color, int target)
 {
-	Cell* pTarget;
-
-	// check if the niegbor is not a TARGET
-	if (maze[row][col] == GRAY)
-	{
-		startBFS = false;
-		cout << "The solution has been found\n";
-		do
-		{
-			pTarget = *(grays.begin());
-			grays.erase(grays.begin());
-		} while (pTarget != NULL && (pTarget->getRow() != row || pTarget->getCol() != col));
-		restorePath(pTarget, pCurrent);
-	}
-	else // paint this neighbor GRAY
-	{
-		Cell* ps = new Cell(row, col, pCurrent);
-		targetGrays.push_back(ps);
-		maze[row][col] = TARGET_GRAY;
-	}
-}
-
-void BFSIteration() 
-{
-	Cell* pCurrent;
+	Cell* pCurrent = nullptr;
 	int row, col; // current row and col
 
-	Cell* pTarget;
-	int rowTarget, colTarget; // current row and col
-
 	// check the grays queue
-	if (grays.empty() || targetGrays.empty()) // nothing to do
+	if (grays.empty()) // nothing to do
 	{
-		startBFS = false;
+		startBidirectionalSearch = false;
 		cout << "There is no solution\n";
 	}
 	else
@@ -183,47 +164,32 @@ void BFSIteration()
 		// pick and remove from grays the first Cell and check its neighbors
 		pCurrent = *(grays.begin());
 		grays.erase(grays.begin());
+
 		// paint it black
 		row = pCurrent->getRow();
 		col = pCurrent->getCol();
 		maze[row][col] = BLACK;
 
-		// pick and remove from grays the first Cell and check its neighbors
-		pTarget = *(targetGrays.begin());
-		targetGrays.erase(targetGrays.begin());
-		// paint it black
-		rowTarget = pTarget->getRow();
-		colTarget = pTarget->getCol();
-		maze[rowTarget][colTarget] = BLACK;
-
 		// now scan all the white [or target] neighbors and add them (if it's not a target) to Grays
 		// check UP
-		if (maze[row + 1][col] == SPACE || maze[row + 1][col] == TARGET_GRAY)
-			checkNeighbor(pCurrent, row + 1, col);
+		if (maze[row + 1][col] == SPACE || maze[row + 1][col] == target)
+			checkNeighbor(pCurrent, grays, collisionGrays, row + 1, col, color, target);
 		// check DOWN
-		if (startBFS && (maze[row - 1][col] == SPACE || maze[row - 1][col] == TARGET_GRAY))
-			checkNeighbor(pCurrent, row - 1, col);
+		if (startBidirectionalSearch && (maze[row - 1][col] == SPACE || maze[row - 1][col] == target))
+			checkNeighbor(pCurrent, grays, collisionGrays, row - 1, col, color, target);
 		// check LEFT
-		if (startBFS && (maze[row][col - 1] == SPACE || maze[row][col - 1] == TARGET_GRAY))
-			checkNeighbor(pCurrent, row , col - 1);
+		if (startBidirectionalSearch && (maze[row][col - 1] == SPACE || maze[row][col - 1] == target))
+			checkNeighbor(pCurrent, grays, collisionGrays, row, col - 1, color, target);
 		// check RIGHT
-		if (startBFS && (maze[row][col + 1] == SPACE || maze[row][col + 1] == TARGET_GRAY))
-			checkNeighbor(pCurrent, row , col + 1);
-
-		// now scan all the white [or target] neighbors and add them (if it's not a target) to Grays
-		// check UP
-		if (maze[rowTarget + 1][colTarget] == SPACE || maze[rowTarget + 1][colTarget] == GRAY)
-			checkNeighborTarget(pTarget, rowTarget + 1, colTarget);
-		// check DOWN
-		if (startBFS && (maze[rowTarget - 1][colTarget] == SPACE || maze[rowTarget - 1][colTarget] == GRAY))
-			checkNeighborTarget(pTarget, rowTarget - 1, colTarget);
-		// check LEFT
-		if (startBFS && (maze[rowTarget][colTarget - 1] == SPACE || maze[rowTarget][colTarget - 1] == GRAY))
-			checkNeighborTarget(pTarget, rowTarget, colTarget - 1);
-		// check RIGHT
-		if (startBFS && (maze[rowTarget][colTarget + 1] == SPACE || maze[rowTarget][colTarget + 1] == GRAY))
-			checkNeighborTarget(pTarget, rowTarget, colTarget + 1);
+		if (startBidirectionalSearch && (maze[row][col + 1] == SPACE || maze[row][col + 1] == target))
+			checkNeighbor(pCurrent, grays, collisionGrays, row, col + 1, color, target);
 	}
+}
+
+void bidirectionalSearch()
+{
+	BFSIteration(startGrays, targetGrays, GRAY, TARGET_GRAY);
+	BFSIteration(targetGrays, startGrays, TARGET_GRAY, GRAY);
 }
 
 void display()
@@ -237,18 +203,17 @@ void display()
 
 void idle()
 {
-	if (startBFS)
-		BFSIteration();
+	if (startBidirectionalSearch)
+		bidirectionalSearch();
 
 	glutPostRedisplay(); // indirect call to refresh function (display)
 }
 
 void menu(int choice)
 {
-	if (choice == 1) // BFS
-		startBFS = true;
+	if (choice == BIDIRECTIONAL_SEARCH)
+		startBidirectionalSearch = true;
 }
-
 
 void main(int argc, char* argv[])
 {
@@ -263,7 +228,7 @@ void main(int argc, char* argv[])
 
 	// menu
 	glutCreateMenu(menu);
-	glutAddMenuEntry("Run BFS", 1);
+	glutAddMenuEntry("Run Bidirectional Search", BIDIRECTIONAL_SEARCH);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
 
 	init();
